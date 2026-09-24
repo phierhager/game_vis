@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Learning to Signal</title>
+<meta name="description" content="Interactive phase portraits of a sender-receiver signaling game in which both players follow their own payoff gradient.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<link rel="stylesheet" href="css/site.css">
+<script>try{var t=localStorage.getItem('ppp-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="index.html">
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" rx="3" fill="none" stroke="currentColor" stroke-opacity="0.35"/><path d="M4 18 C 6 8, 12 5, 18 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="18" cy="4" r="2.2" fill="currentColor"/></svg>
+    Phase Portraits of Play
+  </a>
+  <nav class="site-nav" aria-label="Explorers">
+    <a href="signaling.html" aria-current="page">Signaling games</a>
+    <a href="normal-form.html">2×2 games</a>
+    <a href="simplex.html">Three strategies</a>
+    <a href="markets.html">Markets</a>
+  </nav>
+  <button class="theme-toggle" type="button">Auto</button>
+</header>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Signaling games · everyone follows the first-order signal</p>
+    <h1>Learning to signal</h1>
+    <p class="lede">A sender sees the state of the world and picks a message. A receiver sees only the message and picks an action. Each of them nudges its own probabilities along the gradient of its own payoff. The sender has two probabilities and the receiver two more, so learning is a flow in four dimensions. These linked views take that flow apart.</p>
+    <div class="equation" aria-label="Learning equations">
+      <span class="eq-label">sender</span><span>d/dt P(m | t) ∝ π(t) · [ Σₐ P(a | m) u_S(t, a) − c(t, m) ]</span>
+      <span class="eq-label">receiver</span><span>d/dt P(a | m) ∝ P(m) · E[ u_R(t, a) | m ]</span>
+    </div>
+  </section>
+
+  <div class="controls" role="group" aria-label="Simulation controls">
+    <div class="control-group">
+      <div class="control">
+        <label for="scenario">Scenario</label>
+        <select id="scenario">
+          <option value="lewis_even">Lewis game, equal priors</option>
+          <option value="lewis_skewed">Lewis game, skewed priors</option>
+          <option value="impatient">Impatient receiver</option>
+          <option value="handicap_cheap">Handicap game, cheap faking</option>
+          <option value="handicap_dear">Handicap game, costly faking</option>
+          <option value="lewis3">Three states, three messages</option>
+        </select>
+      </div>
+      <div class="control" id="prior-control">
+        <label for="prior">Prior P(t1) <output></output></label>
+        <input id="prior" type="range" min="0.5" max="0.95" step="0.01" value="0.5">
+      </div>
+      <div class="control" id="cost-control" hidden>
+        <label for="cost">Low type's display cost <output></output></label>
+        <input id="cost" type="range" min="0" max="1.6" step="0.05" value="0.6">
+      </div>
+    </div>
+    <div class="control-group">
+      <div class="control">
+        <label for="rule">Learning rule</label>
+        <select id="rule">
+          <option value="replicator">Replicator (multiplicative weights)</option>
+          <option value="projection">Projected gradient</option>
+          <option value="softmax_pg">Softmax policy gradient</option>
+          <option value="logit">Logit response (for contrast)</option>
+        </select>
+      </div>
+      <div class="control">
+        <label for="ratio">Who learns faster <output></output></label>
+        <input id="ratio" type="range" min="-4" max="4" step="0.5" value="0">
+        <div class="scale"><span>receiver</span><span>sender</span></div>
+      </div>
+      <div class="control">
+        <label for="explore">Exploration <output></output></label>
+        <input id="explore" type="range" min="0" max="0.02" step="0.001" value="0">
+      </div>
+    </div>
+    <div class="control-group">
+      <div class="buttons">
+        <button class="btn primary" id="play" type="button">Pause</button>
+        <button class="btn" id="restart" type="button">Restart</button>
+        <button class="btn" id="shuffle" type="button">New start</button>
+      </div>
+      <div class="control">
+        <label for="speed">Speed <output></output></label>
+        <input id="speed" type="range" min="-2" max="3" step="0.5" value="0">
+      </div>
+      <label class="check"><input type="checkbox" id="swarm" checked> Show 200 other runs</label>
+    </div>
+  </div>
+
+  <div class="bench">
+    <figure class="panel" id="panel-sender">
+      <div class="panel-head"><h2 class="panel-title" id="sender-title">Sender</h2><span class="panel-hint" id="sender-hint">drag to set the start</span></div>
+      <div id="plot-sender"></div>
+      <p class="caption" id="sender-caption">Each point is a sender strategy. Tracers show where the sender would move if the receiver stood still; shading is the sender's payoff. Corner diagrams are the four pure strategies.</p>
+    </figure>
+    <figure class="panel" id="panel-receiver">
+      <div class="panel-head"><h2 class="panel-title" id="receiver-title">Receiver</h2><span class="panel-hint" id="receiver-hint">drag to set the start</span></div>
+      <div id="plot-receiver"></div>
+      <p class="caption" id="receiver-caption">Each point is a receiver strategy. The diagonal is "ignore the message". As the sender learns, this landscape tilts under the receiver.</p>
+    </figure>
+    <figure class="panel" id="panel-plane">
+      <div class="panel-head"><h2 class="panel-title" id="plane-title">Meaning plane</h2><span class="panel-hint" id="plane-hint">hover a dot to follow that run</span></div>
+      <div id="plot-plane"></div>
+      <p class="caption" id="plane-caption"></p>
+    </figure>
+    <figure class="panel" id="panel-flow">
+      <div class="panel-head"><h2 class="panel-title">States → messages → actions</h2><span class="panel-hint" id="flow-hint"></span></div>
+      <div id="plot-flow"></div>
+      <p class="caption">Band width is probability; colour follows the state a band carries. A working language delivers each colour, unmixed, to the action that fits it.</p>
+    </figure>
+    <figure class="panel" id="panel-time">
+      <div class="panel-head"><h2 class="panel-title">Over time</h2><span class="panel-hint">hover for values</span></div>
+      <ul class="legend" id="time-legend-payoff"></ul>
+      <div id="chart-payoff"></div>
+      <ul class="legend" id="time-legend-info"></ul>
+      <div id="chart-info"></div>
+    </figure>
+    <figure class="panel" id="panel-outcomes">
+      <div class="panel-head"><h2 class="panel-title">Where runs end up</h2><span class="panel-hint" id="outcome-hint"></span></div>
+      <div class="stackbar" id="stackbar" role="img" aria-label="Share of runs by outcome"></div>
+      <div class="stackrows" id="stackrows"></div>
+      <div id="basin-block">
+        <div class="panel-head" style="margin-top:6px"><span class="panel-hint" id="basin-hint">Basin slice: every sender start, receiver start fixed at the ink run's</span></div>
+        <div id="plot-basin"></div>
+      </div>
+    </figure>
+  </div>
+
+  <p class="readout" id="readout" aria-live="off"></p>
+
+  <div class="notes">
+    <section>
+      <h2>What "first-order signal" means here</h2>
+      <p>Every agent adjusts its own probabilities along the gradient of its own expected payoff, holding everyone else fixed. For the sender that gradient is <code>π(t)·(value of message m in state t)</code>; for the receiver it is <code>P(m)·E[payoff of action a | m]</code>. Nobody models the other side; each just follows its local signal.</p>
+      <p>The learning rules differ in how they turn the signal into a step. <strong>Replicator</strong> is multiplicative weights in continuous time: the step is scaled by <code>x(1−x)</code>. <strong>Projected gradient</strong> takes the raw gradient and stops at the walls. <strong>Softmax policy gradient</strong> is what a policy-gradient learner does in expectation; it slows down near pure strategies. <strong>Logit response</strong> jumps toward a smoothed best reply and is here for contrast.</p>
+    </section>
+    <section>
+      <h2>Is this a genuine dynamical system?</h2>
+      <p>Yes. In a 2×2 normal-form game each player is one number, so the state is a point in a square and the whole flow fits in one picture. Here the state is the pair (sender strategy, receiver strategy): four numbers for two states, twelve for three. Each agent's vector field depends on where the other agent is, which is why the tracers in the sender and receiver squares keep turning.</p>
+      <p>When interests are common (the Lewis game) the flow is secretly an ascent: all three gradient rules climb the shared payoff, which works as a potential. Equilibria are the tops of that landscape, and conventions form by rolling off a saddle. In the meaning plane with equal priors the common payoff is exactly <code>(1 + dx·dy)/2</code>. With conflicting interests (the handicap game) there is no potential, and play can circle forever.</p>
+    </section>
+    <section>
+      <h2>Why language sometimes fails</h2>
+      <p>A message nobody sends gives the receiver no signal at all, since its gradient is scaled by <code>P(m)</code>. A receiver facing an uninformative sender learns to play the likelier state's action whatever it hears. Once it ignores messages, the sender's signal about which message to use is zero, and the pair freezes. With equal priors there is no likelier action, so this drift is absent and a convention always forms. With skewed priors, and especially with a receiver that learns faster than the sender, a sizeable share of runs freezes. A little exploration reopens the trap.</p>
+    </section>
+    <section>
+      <h2>Why cheap faking cycles</h2>
+      <p>In the handicap game both sender types want the reward and only the high type deserves it. If a display costs the low type less than the reward, mimicry pays while the receiver trusts displays. Mimicry then erodes the information in a display, trust falls, mimicry stops paying, and trust recovers. Replicator orbits close around a hybrid equilibrium; projected gradient settles on a limit cycle that touches the boundary. Raise the low type's cost above the reward (1) and honest signaling becomes stable.</p>
+    </section>
+    <section class="try">
+      <h3>Try this</h3>
+      <ol>
+        <li><button class="link" type="button" data-try="saddle">Equal priors, start near babbling:</button> both separations start small and grow along the diagonal of the meaning plane.</li>
+        <li><button class="link" type="button" data-try="trap">Prior 0.8 with a receiver that learns 8× faster:</button> about half of the runs end without language.</li>
+        <li><button class="link" type="button" data-try="patient">Same prior, sender 8× faster:</button> the trap nearly disappears.</li>
+        <li><button class="link" type="button" data-try="cycle">Cheap faking under projected gradient:</button> orbits settle on one limit cycle.</li>
+        <li><button class="link" type="button" data-try="three">Three states:</button> about one run in twenty gets stuck with two states sharing a message.</li>
+      </ol>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <span>Phase Portraits of Play · models and figures in the <code>gamevis</code> Python package</span>
+  <a href="index.html">All explorers</a>
+</footer>
+
+<script type="module" src="js/pages/signaling-page.js"></script>
+</body>
+</html>

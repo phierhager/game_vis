@@ -130,3 +130,17 @@ def test_three_state_lewis_game_mostly_finds_signaling_systems():
     full = np.mean(k > 2.95)
     partial = np.mean(np.abs(k - 2) < 0.05)
     assert full > 0.85 and full + partial > 0.99
+
+
+def test_projected_gradient_reduces_to_a_linear_saddle_in_the_meaning_plane():
+    # Equal priors, interior points: d(dx)/dt = dy / 2 and d(dy)/dt = dx / 2,
+    # while the bias coordinates x1 + x2 and y1 + y2 do not move.
+    rng = np.random.default_rng(6)
+    game = sg.lewis(2)
+    X = 0.1 + 0.8 * rng.random((200, 4))
+    v = game.binary_velocity(X, "projection")
+    dx, dy = X[:, 0] - X[:, 1], X[:, 2] - X[:, 3]
+    assert np.allclose(v[:, 0] - v[:, 1], dy / 2)
+    assert np.allclose(v[:, 2] - v[:, 3], dx / 2)
+    assert np.allclose(v[:, 0] + v[:, 1], 0)
+    assert np.allclose(v[:, 2] + v[:, 3], 0)

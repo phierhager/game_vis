@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Duopoly Price Flows</title>
+<meta name="description" content="Bertrand and Cournot duopolies as learning dynamics: gradient play, best replies, sympathy between firms, and Edgeworth price cycles.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<link rel="stylesheet" href="css/site.css">
+<script>try{var t=localStorage.getItem('ppp-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="index.html">
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" rx="3" fill="none" stroke="currentColor" stroke-opacity="0.35"/><path d="M4 18 C 6 8, 12 5, 18 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="18" cy="4" r="2.2" fill="currentColor"/></svg>
+    Phase Portraits of Play
+  </a>
+  <nav class="site-nav" aria-label="Explorers">
+    <a href="signaling.html">Signaling games</a>
+    <a href="normal-form.html">2×2 games</a>
+    <a href="simplex.html">Three strategies</a>
+    <a href="markets.html" aria-current="page">Markets</a>
+  </nav>
+  <button class="theme-toggle" type="button">Auto</button>
+</header>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Markets · duopoly as a learning dynamic</p>
+    <h1>Duopoly price flows</h1>
+    <p class="lede">Two firms set prices (or quantities). The first-order signal of a firm is its marginal profit: raise the price if that earns more, cut it if not. When both firms follow that signal the market flows to the Nash equilibrium, even though both would earn more inside the lens above it. Give each firm some weight on its rival's profit and the rest point slides toward the cartel.</p>
+    <div class="equation" aria-label="Gradient play">
+      <span class="eq-label">firm i</span><span>d/dt pᵢ = rateᵢ · ∂/∂pᵢ [ profitᵢ(p) + λ · profitⱼ(p) ]</span>
+    </div>
+  </section>
+
+  <div class="controls" role="group" aria-label="Market controls">
+    <div class="control-group">
+      <div class="control">
+        <label for="model">Market</label>
+        <select id="model">
+          <option value="logit">Bertrand, logit demand</option>
+          <option value="linear">Bertrand, linear demand</option>
+          <option value="cournot">Cournot, quantities</option>
+        </select>
+      </div>
+      <div class="control" id="mu-control">
+        <label for="mu">Product differentiation <span class="sym">μ</span> <output></output></label>
+        <input id="mu" type="range" min="0.05" max="1" step="0.05" value="0.25">
+      </div>
+      <div class="control" id="gamma-control" hidden>
+        <label for="gamma">Substitutability <span class="sym">γ</span> <output></output></label>
+        <input id="gamma" type="range" min="0" max="0.9" step="0.05" value="0.5">
+      </div>
+    </div>
+    <div class="control-group">
+      <div class="control">
+        <label for="lambda">Sympathy <span class="sym">λ</span> <output></output></label>
+        <input id="lambda" type="range" min="0" max="1" step="0.05" value="0">
+        <div class="scale"><span>rivals</span><span>cartel</span></div>
+      </div>
+      <div class="control">
+        <label for="adjust">Adjustment</label>
+        <select id="adjust">
+          <option value="gradient">Gradient play (continuous)</option>
+          <option value="br">Best replies, taking turns</option>
+        </select>
+      </div>
+      <div class="control">
+        <label for="shade">Background</label>
+        <select id="shade">
+          <option value="joint">Joint profit</option>
+          <option value="p1">Firm 1's profit</option>
+          <option value="p2">Firm 2's profit</option>
+        </select>
+      </div>
+    </div>
+    <div class="control-group">
+      <div class="buttons">
+        <button class="btn primary" id="play" type="button">Pause</button>
+        <button class="btn" id="random" type="button">8 random runs</button>
+        <button class="btn" id="clear" type="button">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bench">
+    <figure class="panel wide" style="grid-row: span 2">
+      <div class="panel-head"><h2 class="panel-title" id="plane-title">Price plane</h2><span class="panel-hint">click to start both firms at a price pair</span></div>
+      <div id="plot-plane"></div>
+      <ul class="legend" id="plane-legend"></ul>
+      <p class="readout" id="readout"></p>
+    </figure>
+    <figure class="panel fit">
+      <div class="panel-head"><h2 class="panel-title">Benchmarks</h2></div>
+      <div class="stackrows" id="bench-rows"></div>
+      <p class="caption" id="model-notes"></p>
+    </figure>
+    <figure class="panel fit">
+      <div class="panel-head"><h2 class="panel-title">Latest run: profits</h2><span class="panel-hint">hover for values</span></div>
+      <ul class="legend"><li><span class="key-line" style="color:var(--s1)"></span><span>firm 1</span></li><li><span class="key-line" style="color:var(--s2)"></span><span>firm 2</span></li></ul>
+      <div id="chart-profit"></div>
+    </figure>
+  </div>
+
+  <section style="margin-top:40px">
+    <div class="intro">
+      <h2>Edgeworth cycles</h2>
+      <p class="lede">Now make the goods identical and give each firm a capacity limit. Undercutting the rival wins the whole market, so best replies undercut, again and again, until the price is so low that serving the leftover demand at a high price pays more. The undercut firm relents, jumps back up, and the war restarts. There is no resting point.</p>
+    </div>
+    <div class="controls" role="group" aria-label="Edgeworth controls">
+      <div class="control-group">
+        <div class="control">
+          <label for="cap">Capacity per firm <output></output></label>
+          <input id="cap" type="range" min="0.3" max="1" step="0.05" value="0.5">
+          <div class="scale"><span>tight</span><span>serves all</span></div>
+        </div>
+        <div class="control">
+          <label for="ecost">Unit cost <output></output></label>
+          <input id="ecost" type="range" min="0" max="0.3" step="0.01" value="0.1">
+        </div>
+        <div class="control">
+          <label for="tick">Price tick <output></output></label>
+          <input id="tick" type="range" min="0.005" max="0.04" step="0.005" value="0.01">
+        </div>
+      </div>
+      <div class="buttons">
+        <button class="btn primary" id="eplay" type="button">Pause</button>
+        <button class="btn" id="erestart" type="button">Restart</button>
+      </div>
+    </div>
+    <div class="bench">
+      <figure class="panel wide">
+        <div class="panel-head"><h2 class="panel-title">Prices, period by period</h2><span class="panel-hint">firms move in turns</span></div>
+        <ul class="legend"><li><span class="key-line" style="color:var(--s1)"></span><span>firm 1</span></li><li><span class="key-line" style="color:var(--s2)"></span><span>firm 2</span></li></ul>
+        <div id="plot-eprice"></div>
+        <p class="caption" id="e-caption"></p>
+      </figure>
+      <figure class="panel">
+        <div class="panel-head"><h2 class="panel-title">Reaction functions</h2></div>
+        <div id="plot-ebr"></div>
+        <p class="caption">Each firm's best reply to the other's price. The replies jump down at the relenting point, so the two curves never cross: the ink path circles instead of settling.</p>
+      </figure>
+    </div>
+  </section>
+
+  <div class="notes">
+    <section>
+      <h2>Why first-order learners don't collude</h2>
+      <p>At the cartel prices each firm could earn more by shading its own price a little: its marginal profit there is negative. A firm that only follows the slope of its own profit therefore walks away from the lens toward the Nash equilibrium, where both slopes are zero. Collusion needs something beyond the first-order signal: weight on the rival's profit (the λ slider), memory and the threat of punishment, or learning that anticipates the other side's learning.</p>
+    </section>
+    <section>
+      <h2>Models</h2>
+      <p><strong>Logit demand</strong> is the baseline of Calvano, Calzolari, Denicolò and Pastorello (2020): costs 1, qualities 2, outside good 0; μ sets how differentiated the products are, and the Nash and cartel prices are about 1.47 and 1.93 at μ = 0.25. <strong>Linear demand</strong> has <code>qᵢ = 1 − pᵢ + γ pⱼ</code>. <strong>Cournot</strong> firms choose quantities against the price <code>1 − q₁ − q₂</code>. The <strong>Edgeworth</strong> model uses demand <code>1 − p</code>, efficient rationing and alternating moves.</p>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <span>Phase Portraits of Play · models and figures in the <code>gamevis</code> Python package</span>
+  <a href="index.html">All explorers</a>
+</footer>
+
+<script type="module" src="js/pages/markets-page.js"></script>
+</body>
+</html>

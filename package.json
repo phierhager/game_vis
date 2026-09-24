@@ -1,0 +1,10 @@
+{
+  "name": "game-vis",
+  "private": true,
+  "type": "module",
+  "description": "Interactive pictures of learning dynamics in games (static site in docs/).",
+  "scripts": {
+    "test": "node --test tests/js/*.test.js",
+    "serve": "python3 -m http.server 8000 --directory docs"
+  }
+}

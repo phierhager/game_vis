@@ -100,6 +100,28 @@ class Bimatrix:
             simplex.binary_discrete_step(rule, q, d_col, eta * rates[1], temperature),
         )
 
+    def discrete_path(self, p0, q0, rule="replicator", eta=0.1, steps=200, optimistic=False, rates=(1.0, 1.0), temperature=0.05):
+        """Iterate both players' discrete-time algorithm; returns an array (steps + 1, 2).
+
+        ``optimistic=True`` feeds each player the extrapolated signal
+        ``2 g_t - g_{t-1}`` (optimistic multiplicative weights / optimistic
+        gradient), the standard fix for cycling in zero-sum games.
+        """
+        p, q = float(p0), float(q0)
+        prev = None
+        out = [(p, q)]
+        for _ in range(steps):
+            d_row, d_col = self.advantages(p, q)
+            if optimistic and prev is not None:
+                use_row, use_col = 2 * d_row - prev[0], 2 * d_col - prev[1]
+            else:
+                use_row, use_col = d_row, d_col
+            prev = (d_row, d_col)
+            p = float(simplex.binary_discrete_step(rule, p, use_row, eta * rates[0], temperature))
+            q = float(simplex.binary_discrete_step(rule, q, use_col, eta * rates[1], temperature))
+            out.append((p, q))
+        return np.array(out)
+
     def simulate(self, p0, q0, rule="replicator", t_max=20.0, dt=0.01, rates=(1.0, 1.0), temperature=0.05):
         """Continuous-time trajectory (RK4 for smooth rules, Euler otherwise)."""
         P = np.array(p0, dtype=float)
@@ -311,7 +333,7 @@ SYMMETRIC_PRESETS = {
     ),
     "repeated_pd": Symmetric(
         [[30.0, 0.0, 30.0], [50.0, 10.0, 14.0], [30.0, 9.0, 30.0]], "Repeated Prisoner's Dilemma (10 rounds)",
-        ("Always cooperate", "Always defect", "Tit for tat"),
-        "Tit for tat resists defectors but drifts neutrally against unconditional cooperators.",
+        ("AllC", "AllD", "TFT"),
+        "Always cooperate (AllC), always defect (AllD), tit for tat (TFT). TFT resists defectors but drifts neutrally against unconditional cooperators.",
     ),
 }

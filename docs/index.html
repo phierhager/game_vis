@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Phase Portraits of Play</title>
+<meta name="description" content="Interactive pictures of learning dynamics in games: signaling games, 2x2 and 3-strategy games, and Bertrand markets, when every player follows its own payoff gradient.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<link rel="stylesheet" href="css/site.css">
+<script>try{var t=localStorage.getItem('ppp-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<style>
+  .hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 32px; align-items: center; margin-bottom: 36px; }
+  .hero h1 { font-size: clamp(38px, 6vw, 64px); }
+  .hero .lede { font-size: 18px; }
+  .hero-fig { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .hero-fig .caption { margin-top: 6px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; }
+  .card { display: flex; flex-direction: column; gap: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; text-decoration: none; color: inherit; transition: border-color 0.15s; }
+  .card:hover { border-color: var(--ink-2); }
+  .card img { border-radius: 6px; aspect-ratio: 16 / 9; object-fit: cover; object-position: top center; width: 100%; background: var(--page); }
+  .card h2 { font-size: 21px; margin: 0; }
+  .card p { margin: 0; color: var(--ink-2); font-size: 14px; }
+  .card .go { font-size: 13px; color: var(--ink); margin-top: auto; }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 22px; margin-top: 18px; }
+  .gallery figure { margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; }
+  .gallery figcaption { font-size: 13.5px; color: var(--ink-2); padding: 8px 4px 2px; }
+  .gallery figcaption b { color: var(--ink); }
+  .section-head { margin: 48px 0 6px; max-width: 760px; }
+  pre.code { font: 13px/1.6 var(--font-mono); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; overflow-x: auto; color: var(--ink); }
+  @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="index.html">
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" rx="3" fill="none" stroke="currentColor" stroke-opacity="0.35"/><path d="M4 18 C 6 8, 12 5, 18 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="18" cy="4" r="2.2" fill="currentColor"/></svg>
+    Phase Portraits of Play
+  </a>
+  <nav class="site-nav" aria-label="Explorers">
+    <a href="signaling.html">Signaling games</a>
+    <a href="normal-form.html">2×2 games</a>
+    <a href="simplex.html">Three strategies</a>
+    <a href="markets.html">Markets</a>
+  </nav>
+  <button class="theme-toggle" type="button">Auto</button>
+</header>
+
+<main>
+  <section class="hero">
+    <div>
+      <p class="eyebrow">Learning dynamics in games</p>
+      <h1>Phase portraits of play</h1>
+      <p class="lede">What happens when every player follows its own first-order signal: the slope of its own payoff with respect to its own strategy? The joint behaviour becomes a flow in strategy space. These pages draw that flow for signaling games, classic normal-form games and duopoly markets, and let you push it around.</p>
+    </div>
+    <figure class="hero-fig" style="margin:0">
+      <div class="panel-head"><span class="panel-title">200 learning runs of a signaling game</span><span class="panel-hint" id="hero-clock">t = 0</span></div>
+      <div id="hero-plot"></div>
+      <ul class="legend">
+        <li><span class="key-dot" style="background:var(--s1)"></span><span>m1 comes to mean t1</span></li>
+        <li><span class="key-dot" style="background:var(--s2)"></span><span>m1 comes to mean t2</span></li>
+        <li><span class="key-dot" style="background:var(--muted)"></span><span>no language forms</span></li>
+      </ul>
+      <p class="caption">Each dot is one sender-receiver pair; position is how differently the sender treats the two states (x) and how differently the receiver reads the two messages (y). Prior 0.75, replicator dynamics.</p>
+    </figure>
+  </section>
+
+  <div class="cards">
+    <a class="card" href="signaling.html">
+      <picture><source srcset="figures/meaning_plane_dark.png" media="(prefers-color-scheme: dark)"><img src="figures/meaning_plane_light.png" alt="Trajectories in the meaning plane of a Lewis signaling game" loading="lazy"></picture>
+      <h2>Signaling games</h2>
+      <p>A four-dimensional flow, taken apart: sender and receiver squares, the meaning plane, a states-to-messages-to-actions diagram and basins of attraction. Includes the pooling trap and cycling handicap signals.</p>
+      <span class="go">Open the explorer →</span>
+    </a>
+    <a class="card" href="normal-form.html">
+      <picture><source srcset="figures/normal_form_gallery_dark.png" media="(prefers-color-scheme: dark)"><img src="figures/normal_form_gallery_light.png" alt="Phase portraits of six 2x2 games" loading="lazy"></picture>
+      <h2>2×2 games</h2>
+      <p>Prisoner's Dilemma, Stag Hunt, Chicken, Matching Pennies and your own payoffs. Continuous against discrete learning, optimism, and a clickable atlas of symmetric games.</p>
+      <span class="go">Open the explorer →</span>
+    </a>
+    <a class="card" href="simplex.html">
+      <picture><source srcset="figures/simplex_gallery_dark.png" media="(prefers-color-scheme: dark)"><img src="figures/simplex_gallery_light.png" alt="Replicator flows on the triangle for six games" loading="lazy"></picture>
+      <h2>Three strategies</h2>
+      <p>Population games on the triangle: three kinds of rock-paper-scissors, coordination basins, Hawk-Dove-Bourgeois and the repeated Prisoner's Dilemma.</p>
+      <span class="go">Open the explorer →</span>
+    </a>
+    <a class="card" href="markets.html">
+      <picture><source srcset="figures/bertrand_plane_dark.png" media="(prefers-color-scheme: dark)"><img src="figures/bertrand_plane_light.png" alt="Gradient play in a Bertrand duopoly" loading="lazy"></picture>
+      <h2>Markets</h2>
+      <p>Bertrand and Cournot duopolies: why firms following their marginal profit end at Nash, what sympathy does, and Edgeworth price cycles with capacity limits.</p>
+      <span class="go">Open the explorer →</span>
+    </a>
+  </div>
+
+  <div class="notes">
+    <section>
+      <h2>The first-order signal</h2>
+      <p>Every player holds a mixed strategy and changes it along the gradient of its own expected payoff, treating everyone else as fixed. In a normal-form game that gradient is simply the payoff of each action against the current opponents. The learning rules differ only in how a player turns the signal into a step: multiplicative weights (the replicator dynamics), plain projected gradient ascent, softmax policy gradient, or, for contrast, a smoothed best reply.</p>
+      <p>Put all players together and you get a vector field on the space of strategy profiles: an adaptive dynamical system. Its rest points include the Nash equilibria, but whether play reaches them, circles them or gets stuck elsewhere is a property of the flow, not of the payoffs alone.</p>
+    </section>
+    <section>
+      <h2>Why signaling games need more than one picture</h2>
+      <p>In a 2×2 game each player's strategy is one number, so the flow lives on a square. In a sender-receiver game with two states, two messages and two actions, the sender has one probability per state and the receiver one per message: four numbers. The explorer shows that four-dimensional flow through linked views: the two squares (each with the landscape its agent currently sees), a two-dimensional "meaning plane" in which convention formation is escape from a saddle, and basin slices of the full flow.</p>
+    </section>
+  </div>
+
+  <div class="section-head">
+    <h2>Gallery</h2>
+    <p class="lede" style="font-size:16px">Static figures generated by <code>scripts/make_figures.py</code> from the Python package in this repository.</p>
+  </div>
+  <div class="gallery" id="gallery"></div>
+
+  <div class="section-head">
+    <h2>Use the models in Python</h2>
+  </div>
+  <pre class="code">from gamevis import signaling as sg
+
+game = sg.lewis(2, prior=0.8)                         # Lewis game, skewed priors
+shares = sg.basin_fractions(game, rule="replicator")  # m1=t1, m1=t2, no information, cycling
+print(shares)                                         # about [0.44, 0.44, 0.11, 0.00]</pre>
+</main>
+
+<footer class="site-footer">
+  <span>Phase Portraits of Play · models, tests and figures in the <code>gamevis</code> Python package</span>
+</footer>
+
+<script type="module" src="js/pages/index-page.js"></script>
+</body>
+</html>

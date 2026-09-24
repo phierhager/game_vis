@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Triangle Flows</title>
+<meta name="description" content="Phase portraits of three-strategy population games on the simplex: rock-paper-scissors cycles, coordination basins and more.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<link rel="stylesheet" href="css/site.css">
+<script>try{var t=localStorage.getItem('ppp-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<style>
+  .matrix { border-collapse: separate; border-spacing: 5px; font-size: 13px; color: var(--ink-2); }
+  .matrix th { font-weight: 500; color: var(--muted); font-size: 12px; text-align: center; }
+  .matrix th.rowh { text-align: right; padding-right: 4px; }
+  .matrix input { width: 3.8em; font: 14px var(--font-mono); color: var(--ink); background: var(--raised); border: 1px solid var(--border-strong); border-radius: 6px; padding: 3px 4px; text-align: right; }
+  .matrix-wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="index.html">
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" rx="3" fill="none" stroke="currentColor" stroke-opacity="0.35"/><path d="M4 18 C 6 8, 12 5, 18 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="18" cy="4" r="2.2" fill="currentColor"/></svg>
+    Phase Portraits of Play
+  </a>
+  <nav class="site-nav" aria-label="Explorers">
+    <a href="signaling.html">Signaling games</a>
+    <a href="normal-form.html">2×2 games</a>
+    <a href="simplex.html" aria-current="page">Three strategies</a>
+    <a href="markets.html">Markets</a>
+  </nav>
+  <button class="theme-toggle" type="button">Auto</button>
+</header>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Population games · three strategies</p>
+    <h1>Triangle flows</h1>
+    <p class="lede">One population, three strategies. The population's mix is a point in a triangle whose corners are the pure strategies. Each strategy grows when it earns more than the population average: the first-order signal of a population. Click inside the triangle to follow a population from any starting mix.</p>
+    <div class="equation" aria-label="Replicator equation">
+      <span class="eq-label">replicator</span><span>d/dt xᵢ = xᵢ · ( (A x)ᵢ − x·A x )</span>
+      <span class="eq-label">projected</span><span>d/dt x = A x − mean(A x), stopped at the edges</span>
+    </div>
+  </section>
+
+  <div class="controls" role="group" aria-label="Game and learning controls">
+    <div class="control-group">
+      <div class="control">
+        <label for="game">Game</label>
+        <select id="game">
+          <option value="rps_zero_sum">Rock-paper-scissors, zero-sum</option>
+          <option value="rps_stable">Rock-paper-scissors, wins pay more</option>
+          <option value="rps_unstable">Rock-paper-scissors, losses cost more</option>
+          <option value="coordination3">Three conventions</option>
+          <option value="hawk_dove_bourgeois">Hawk-Dove-Bourgeois</option>
+          <option value="repeated_pd">Repeated Prisoner's Dilemma</option>
+          <option value="custom">Custom (edit the matrix)</option>
+        </select>
+      </div>
+      <div class="control">
+        <label for="rule">Learning rule</label>
+        <select id="rule">
+          <option value="replicator">Replicator</option>
+          <option value="projection">Projected gradient</option>
+          <option value="softmax_pg">Softmax policy gradient</option>
+          <option value="logit">Logit response</option>
+          <option value="best_response">Best response</option>
+        </select>
+      </div>
+      <div class="control" id="temp-control" hidden>
+        <label for="temp">Temperature <output></output></label>
+        <input id="temp" type="range" min="-2" max="0.5" step="0.1" value="-1">
+      </div>
+    </div>
+    <div class="control-group">
+      <label class="check"><input type="checkbox" id="discrete"> Discrete steps</label>
+      <div class="control" id="eta-control" hidden>
+        <label for="eta">Step size <span class="sym">η</span> <output></output></label>
+        <input id="eta" type="range" min="0.02" max="0.8" step="0.01" value="0.2">
+      </div>
+      <div class="buttons">
+        <button class="btn primary" id="play" type="button">Pause</button>
+        <button class="btn" id="random" type="button">10 random runs</button>
+        <button class="btn" id="clear" type="button">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bench">
+    <figure class="panel wide" style="grid-row: span 2">
+      <div class="panel-head"><h2 class="panel-title">Phase portrait on the simplex</h2><span class="panel-hint">click to launch a run · hover to read the mix</span></div>
+      <div id="plot-tri"></div>
+      <ul class="legend" id="tri-legend"></ul>
+      <p class="caption" id="tri-caption"></p>
+      <p class="readout" id="readout"></p>
+    </figure>
+    <figure class="panel fit">
+      <div class="panel-head"><h2 class="panel-title">Payoff matrix</h2><span class="panel-hint">row strategy against column strategy</span></div>
+      <div class="matrix-wrap"><table class="matrix" id="matrix"></table></div>
+      <p class="caption" id="game-notes"></p>
+    </figure>
+    <figure class="panel fit">
+      <div class="panel-head"><h2 class="panel-title">Latest run: shares over time</h2><span class="panel-hint">hover for values</span></div>
+      <ul class="legend" id="time-legend"></ul>
+      <div id="chart-time"></div>
+    </figure>
+  </div>
+
+  <div class="notes">
+    <section>
+      <h2>Reading the triangle</h2>
+      <p>Every point is a population mix; the distance to an edge is the share of the strategy in the opposite corner. Tracers follow the replicator flow (or the rule you pick). Markers are rest points: filled if nearby mixes are pulled in, open if they are pushed away, half-filled for saddles, a ringed dot where orbits circle, a diamond where the linearisation cannot decide.</p>
+    </section>
+    <section>
+      <h2>Three kinds of rock-paper-scissors</h2>
+      <p>With zero-sum payoffs the replicator dynamics keeps the product x<sub>R</sub>x<sub>P</sub>x<sub>S</sub> constant, so every orbit is closed. Let a win pay more than a loss costs and that product grows: populations spiral into the mixed equilibrium. Make losses hurt more and it shrinks: the population spirals out and spends longer and longer near each pure state in turn, a heteroclinic cycle.</p>
+    </section>
+    <section class="try">
+      <h3>Try this</h3>
+      <ol>
+        <li><button class="link" type="button" data-try="rps-discrete">Zero-sum rock-paper-scissors with discrete steps:</button> closed orbits turn into outward spirals.</li>
+        <li><button class="link" type="button" data-try="coord-br">Three conventions under best response:</button> straight paths to the best corner.</li>
+        <li><button class="link" type="button" data-try="pd-tft">Repeated Prisoner's Dilemma:</button> start near tit for tat and watch the slow drift along the top edge.</li>
+      </ol>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <span>Phase Portraits of Play · models and figures in the <code>gamevis</code> Python package</span>
+  <a href="index.html">All explorers</a>
+</footer>
+
+<script type="module" src="js/pages/simplex-page.js"></script>
+</body>
+</html>

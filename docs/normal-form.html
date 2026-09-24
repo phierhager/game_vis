@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Two-by-Two Flows</title>
+<meta name="description" content="Phase portraits of 2x2 games under first-order learning, with a clickable atlas of symmetric games.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<link rel="stylesheet" href="css/site.css">
+<script>try{var t=localStorage.getItem('ppp-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<style>
+  .matrix { border-collapse: separate; border-spacing: 6px; font-size: 13px; color: var(--ink-2); }
+  .matrix th { font-weight: 500; text-align: center; color: var(--muted); font-size: 12px; }
+  .matrix th.rowh { text-align: right; padding-right: 4px; }
+  .matrix td { background: var(--wash); border-radius: 8px; padding: 6px 8px; white-space: nowrap; }
+  .matrix input { width: 3.6em; font: 14px var(--font-mono); color: var(--ink); background: var(--raised); border: 1px solid var(--border-strong); border-radius: 6px; padding: 3px 4px; text-align: right; }
+  .matrix .sep { color: var(--muted); padding-inline: 2px; }
+  .matrix-wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="index.html">
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" rx="3" fill="none" stroke="currentColor" stroke-opacity="0.35"/><path d="M4 18 C 6 8, 12 5, 18 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="18" cy="4" r="2.2" fill="currentColor"/></svg>
+    Phase Portraits of Play
+  </a>
+  <nav class="site-nav" aria-label="Explorers">
+    <a href="signaling.html">Signaling games</a>
+    <a href="normal-form.html" aria-current="page">2×2 games</a>
+    <a href="simplex.html">Three strategies</a>
+    <a href="markets.html">Markets</a>
+  </nav>
+  <button class="theme-toggle" type="button">Auto</button>
+</header>
+
+<main>
+  <section class="intro">
+    <p class="eyebrow">Normal-form games · two players, two actions</p>
+    <h1>Two-by-two flows</h1>
+    <p class="lede">With two actions a mixed strategy is one number, so a pair of learners is a point in the unit square and learning is a planar flow. Pick a game and a learning rule, then click the square to launch runs. The atlas on the right places every symmetric game on one map.</p>
+    <div class="equation" aria-label="Learning equations">
+      <span class="eq-label">row</span><span>d/dt p = f(p, Δu_row(q)),  Δu_row = payoff(first action) − payoff(second action)</span>
+      <span class="eq-label">column</span><span>d/dt q = f(q, Δu_col(p)),  replicator f = p(1 − p)·Δu</span>
+    </div>
+  </section>
+
+  <div class="controls" role="group" aria-label="Game and learning controls">
+    <div class="control-group">
+      <div class="control">
+        <label for="game">Game</label>
+        <select id="game">
+          <option value="prisoners_dilemma">Prisoner's Dilemma</option>
+          <option value="stag_hunt">Stag Hunt</option>
+          <option value="chicken">Chicken (Hawk-Dove)</option>
+          <option value="matching_pennies">Matching Pennies</option>
+          <option value="battle_of_sexes">Battle of the Sexes</option>
+          <option value="coordination">Pure Coordination</option>
+          <option value="custom">Custom (edit the payoffs)</option>
+        </select>
+      </div>
+      <div class="control">
+        <label for="rule">Learning rule</label>
+        <select id="rule">
+          <option value="replicator">Replicator (multiplicative weights)</option>
+          <option value="projection">Projected gradient</option>
+          <option value="softmax_pg">Softmax policy gradient</option>
+          <option value="logit">Logit response</option>
+          <option value="best_response">Best response</option>
+        </select>
+      </div>
+      <div class="control" id="temp-control" hidden>
+        <label for="temp">Temperature <output></output></label>
+        <input id="temp" type="range" min="-3" max="0.5" step="0.1" value="-1.4">
+      </div>
+    </div>
+    <div class="control-group">
+      <label class="check"><input type="checkbox" id="discrete"> Discrete steps</label>
+      <div class="control" id="eta-control" hidden>
+        <label for="eta">Step size <span class="sym">η</span> <output></output></label>
+        <input id="eta" type="range" min="0.02" max="0.6" step="0.01" value="0.15">
+      </div>
+      <label class="check" id="opt-control" hidden><input type="checkbox" id="optimistic"> Optimistic (use 2g<sub>t</sub> − g<sub>t−1</sub>)</label>
+      <div class="control">
+        <label for="ratio">Who learns faster <output></output></label>
+        <input id="ratio" type="range" min="-3" max="3" step="0.5" value="0">
+        <div class="scale"><span>column</span><span>row</span></div>
+      </div>
+    </div>
+    <div class="control-group">
+      <div class="buttons">
+        <button class="btn primary" id="play" type="button">Pause</button>
+        <button class="btn" id="random" type="button">12 random runs</button>
+        <button class="btn" id="clear" type="button">Clear</button>
+      </div>
+      <label class="check"><input type="checkbox" id="basins" checked> Basins</label>
+    </div>
+  </div>
+
+  <div class="bench">
+    <figure class="panel wide" style="grid-row: span 2">
+      <div class="panel-head"><h2 class="panel-title" id="portrait-title">Phase portrait</h2><span class="panel-hint">click to launch a run · hover for the local flow</span></div>
+      <div id="plot-portrait"></div>
+      <ul class="legend" id="portrait-legend"></ul>
+      <p class="caption" id="portrait-caption"></p>
+      <p class="readout" id="readout"></p>
+    </figure>
+    <figure class="panel fit">
+      <div class="panel-head"><h2 class="panel-title">Atlas of symmetric games</h2><span class="panel-hint">click to pick a game</span></div>
+      <div id="plot-atlas"></div>
+      <p class="caption">Reward R = 1 and punishment P = 0 fixed; temptation T across, sucker's payoff S up. The dot is the current game, rescaled so that R = 1 and P = 0.</p>
+    </figure>
+    <figure class="panel fit">
+      <div class="panel-head"><h2 class="panel-title">Payoffs</h2><span class="panel-hint">(row, column) · edit to make a custom game</span></div>
+      <div class="matrix-wrap"><table class="matrix" id="matrix"></table></div>
+      <p class="caption" id="game-notes"></p>
+    </figure>
+    <figure class="panel full">
+      <div class="panel-head"><h2 class="panel-title">Latest run over time</h2><span class="panel-hint">hover for values</span></div>
+      <ul class="legend" id="time-legend"></ul>
+      <div id="chart-time"></div>
+    </figure>
+  </div>
+
+  <div class="notes">
+    <section>
+      <h2>Reading the square</h2>
+      <p>The horizontal axis is the probability that the row player uses its first action, the vertical axis the same for the column player. Corners are pure profiles. The grey tracers follow the learning flow; where they bunch up and stall there is a rest point. Filled markers are stable, half-filled are saddles, a ringed dot is a neutral center that orbits circle around.</p>
+      <p>The dashed lines are where a player is indifferent between its two actions. The row player's probability can only turn around on its line, the column player's on its own. Tints show which stable outcome each starting point reaches under the current rule.</p>
+    </section>
+    <section>
+      <h2>Clocks matter</h2>
+      <p>In Matching Pennies the continuous replicator dynamics conserves a quantity, so every orbit closes. Switch on <strong>Discrete steps</strong> and the same signal, applied with a fixed step, overshoots on every turn and spirals out to the boundary. Tick <strong>Optimistic</strong> and each player extrapolates its signal one step ahead; the spiral turns inward. Nothing about the game changed, only how the first-order signal is used.</p>
+    </section>
+    <section>
+      <h2>One population or two</h2>
+      <p>The diagonal of the square is what a single population playing against itself would do. In Chicken the mixed equilibrium is stable along the diagonal but a saddle in the square: when row and column players learn separately, any asymmetry grows and one side ends up yielding.</p>
+    </section>
+    <section class="try">
+      <h3>Try this</h3>
+      <ol>
+        <li><button class="link" type="button" data-try="mp-discrete">Matching Pennies with discrete multiplicative weights</button>, then tick Optimistic.</li>
+        <li><button class="link" type="button" data-try="stag-speed">Stag Hunt with a fast column player:</button> the saddle's separatrix tilts and the basins change size.</li>
+        <li><button class="link" type="button" data-try="chicken-br">Chicken under best response:</button> straight-line paths toward pure replies.</li>
+        <li><button class="link" type="button" data-try="pd-logit">Prisoner's Dilemma with a hot logit rule:</button> noise keeps some cooperation alive.</li>
+      </ol>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <span>Phase Portraits of Play · models and figures in the <code>gamevis</code> Python package</span>
+  <a href="index.html">All explorers</a>
+</footer>
+
+<script type="module" src="js/pages/normal-form-page.js"></script>
+</body>
+</html>
