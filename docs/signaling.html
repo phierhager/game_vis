@@ -126,7 +126,15 @@
       <div class="stackbar" id="stackbar" role="img" aria-label="Share of runs by outcome"></div>
       <div class="stackrows" id="stackrows"></div>
       <div id="basin-block">
-        <div class="panel-head" style="margin-top:6px"><span class="panel-hint" id="basin-hint">Basin slice: every sender start, receiver start fixed at the ink run's</span></div>
+        <div class="panel-head" style="margin-top:8px">
+          <span class="panel-hint" id="basin-hint">Basin slice: every sender start, with the receiver starting where the ink run does</span>
+          <div class="control"><label for="basin-axis" class="sr-only">Slice through</label>
+            <select id="basin-axis" aria-label="Slice through">
+              <option value="sender">vary sender start</option>
+              <option value="receiver">vary receiver start</option>
+            </select>
+          </div>
+        </div>
         <div id="plot-basin"></div>
       </div>
     </figure>

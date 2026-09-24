@@ -76,20 +76,13 @@ export class SignalingGame {
   // Joint velocity of the flat state y = [S..., R...].
   velocity(y, { rule = 'replicator', rates = [1, 1], temperature = 0.05, exploration = 0 } = {}, out = new Float64Array(y.length)) {
     const { n, k, l } = this;
-    const S = y.subarray(0, n * k);
-    const R = y.subarray(n * k);
-    const gs = this.senderSignal(R);
-    const gr = this.receiverSignal(S);
-    for (let t = 0; t < n; t++) {
-      const x = Array.from(S.subarray(t * k, t * k + k));
-      const v = field(rule, x, Array.from(gs.subarray(t * k, t * k + k)), temperature);
-      for (let m = 0; m < k; m++) out[t * k + m] = rates[0] * v[m] + exploration * (1 / k - x[m]);
-    }
-    for (let m = 0; m < k; m++) {
-      const x = Array.from(R.subarray(m * l, m * l + l));
-      const v = field(rule, x, Array.from(gr.subarray(m * l, m * l + l)), temperature);
-      for (let a = 0; a < l; a++) out[n * k + m * l + a] = rates[1] * v[a] + exploration * (1 / l - x[a]);
-    }
+    const nk = n * k;
+    const S = y.subarray(0, nk);
+    const R = y.subarray(nk);
+    const gs = this.senderSignal(R, scratch('gs', nk));
+    const gr = this.receiverSignal(S, scratch('gr', k * l));
+    for (let t = 0; t < n; t++) rowVelocity(rule, y, gs, t * k, t * k, k, out, t * k, rates[0], exploration, temperature);
+    for (let m = 0; m < k; m++) rowVelocity(rule, y, gr, nk + m * l, m * l, l, out, nk + m * l, rates[1], exploration, temperature);
     return out;
   }
 
@@ -172,6 +165,52 @@ export class SignalingGame {
 }
 
 // ---------------------------------------------------------------------------
+// Allocation-free helpers for the general dynamics
+// ---------------------------------------------------------------------------
+
+const SCRATCH = new Map();
+
+function scratch(name, len) {
+  const key = `${name}:${len}`;
+  let a = SCRATCH.get(key);
+  if (!a) {
+    a = new Float64Array(len);
+    SCRATCH.set(key, a);
+  }
+  return a;
+}
+
+// Velocity of one simplex row y[yo .. yo+len) given its signal g[go .. go+len), written to out[oo ..].
+function rowVelocity(rule, y, g, yo, go, len, out, oo, rate, eps, temperature) {
+  if (rule === 'replicator' || rule === 'softmax_pg') {
+    let m = 0;
+    for (let i = 0; i < len; i++) m += y[yo + i] * g[go + i];
+    if (rule === 'replicator') {
+      for (let i = 0; i < len; i++) out[oo + i] = rate * y[yo + i] * (g[go + i] - m);
+    } else {
+      // replicator applied twice: J (J g)
+      let m2 = 0;
+      for (let i = 0; i < len; i++) m2 += y[yo + i] * y[yo + i] * (g[go + i] - m);
+      for (let i = 0; i < len; i++) {
+        const r = y[yo + i] * (g[go + i] - m);
+        out[oo + i] = rate * y[yo + i] * (r - m2);
+      }
+    }
+  } else if (rule === 'logit') {
+    let mx = -Infinity;
+    for (let i = 0; i < len; i++) mx = Math.max(mx, g[go + i] / temperature);
+    let z = 0;
+    for (let i = 0; i < len; i++) z += Math.exp(g[go + i] / temperature - mx);
+    for (let i = 0; i < len; i++) out[oo + i] = rate * (Math.exp(g[go + i] / temperature - mx) / z - y[yo + i]);
+  } else {
+    const x = Array.from(y.subarray(yo, yo + len));
+    const v = field(rule, x, Array.from(g.subarray(go, go + len)), temperature);
+    for (let i = 0; i < len; i++) out[oo + i] = rate * v[i];
+  }
+  if (eps) for (let i = 0; i < len; i++) out[oo + i] += eps * (1 / len - y[yo + i]);
+}
+
+// ---------------------------------------------------------------------------
 // Presets
 // ---------------------------------------------------------------------------
 
@@ -243,22 +282,25 @@ export function rowLayout(game) {
 // One integration step of the general dynamics, in place on the flat state y.
 export function step(game, y, dt, opts = {}) {
   const rule = opts.rule || 'replicator';
-  const f = (z, out) => game.velocity(z, opts, out);
   const N = y.length;
   const rows = opts.rows || rowLayout(game);
+  const k1 = scratch('k1', N);
   if (SMOOTH_RULES.has(rule)) {
-    const k1 = f(y, new Float64Array(N));
-    const tmp = new Float64Array(N);
+    const k2 = scratch('k2', N);
+    const k3 = scratch('k3', N);
+    const k4 = scratch('k4', N);
+    const tmp = scratch('tmp', N);
+    game.velocity(y, opts, k1);
     for (let i = 0; i < N; i++) tmp[i] = y[i] + (dt / 2) * k1[i];
-    const k2 = f(tmp, new Float64Array(N));
+    game.velocity(tmp, opts, k2);
     for (let i = 0; i < N; i++) tmp[i] = y[i] + (dt / 2) * k2[i];
-    const k3 = f(tmp, new Float64Array(N));
+    game.velocity(tmp, opts, k3);
     for (let i = 0; i < N; i++) tmp[i] = y[i] + dt * k3[i];
-    const k4 = f(tmp, new Float64Array(N));
+    game.velocity(tmp, opts, k4);
     for (let i = 0; i < N; i++) y[i] += (dt / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
     cleanRows(y, rows);
   } else {
-    const k1 = f(y, new Float64Array(N));
+    game.velocity(y, opts, k1);
     for (let i = 0; i < N; i++) y[i] += dt * k1[i];
     // projected Euler: put every row back on its simplex
     for (const [o, len] of rows) {

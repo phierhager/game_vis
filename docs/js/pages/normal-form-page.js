@@ -58,7 +58,7 @@ const ui = {
 };
 
 const temp = bindRange('temp', (v) => (10 ** v).toFixed(v < -1 ? 3 : 2), (v) => { state.temperature = 10 ** v; gameChanged(false); });
-const eta = bindRange('eta', (v) => v.toFixed(2), (v) => { state.eta = v; });
+bindRange('eta', (v) => v.toFixed(2), (v) => { state.eta = v; });
 const ratio = bindRange('ratio', (v) => {
   if (Math.abs(v) < 1e-9) return 'equal';
   const f = 2 ** Math.abs(v);
@@ -238,7 +238,7 @@ function drawPortraitBg() {
   const ctx = plot.ctx.bg;
   plot.clear('bg');
   if (state.basins && basinCodes) {
-    const cols = [T.s1, T.s2, T.s3].map((c) => mixRgb(c, T.surface, 0.2));
+    const cols = [T.s1, T.s2, T.s3].map((c) => mixRgb(c, T.surface, T.dark ? 0.15 : 0.2));
     raster(plot, ctx, (x, y) => {
       const i = Math.min(BN - 1, Math.floor(x * BN));
       const j = Math.min(BN - 1, Math.floor(y * BN));

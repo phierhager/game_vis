@@ -59,7 +59,7 @@ export function initThemeToggle(button) {
   try {
     const saved = localStorage.getItem(KEY);
     if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
-  } catch (e) {
+  } catch {
     /* storage unavailable: keep the system theme */
   }
   label();
@@ -71,7 +71,7 @@ export function initThemeToggle(button) {
     try {
       if (next) localStorage.setItem(KEY, next);
       else localStorage.removeItem(KEY);
-    } catch (e) {
+    } catch {
       /* ignore */
     }
     label();

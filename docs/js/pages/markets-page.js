@@ -273,7 +273,7 @@ function renderLegend() {
     '<li><span class="key-dot" style="background:var(--ink)"></span><span>rest point of gradient play</span></li>',
     '<li><span class="key-ring" style="border-radius:2px;transform:rotate(45deg) scale(0.8)"></span><span>cartel</span></li>',
     '<li><span class="key-dot" style="background:color-mix(in srgb, var(--s3) 35%, var(--surface))"></span><span>both beat Nash</span></li>',
-    `<li><span>shading: ${shadeName}, darker is higher</span></li>`,
+    `<li><span>shading: ${shadeName} (stronger shade, more profit)</span></li>`,
   ].join('');
 }
 

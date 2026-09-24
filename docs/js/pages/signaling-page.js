@@ -98,8 +98,8 @@ const ui = {
 const prior = bindRange('prior', (v) => v.toFixed(2), (v) => { state.prior = v; rebuild({ keepStart: true }); });
 const cost = bindRange('cost', (v) => v.toFixed(2), (v) => { state.costLow = v; rebuild({ keepStart: true }); });
 const ratio = bindRange('ratio', ratioLabel, (v) => { state.ratio = v; rebuild({ keepStart: true }); });
-const explore = bindRange('explore', (v) => v.toFixed(3), (v) => { state.exploration = v; rebuild({ keepStart: true }); });
-const speed = bindRange('speed', (v) => `${(2 ** v).toFixed(v < 0 ? 2 : 0)}×`, (v) => { state.speed = v; });
+bindRange('explore', (v) => v.toFixed(3), (v) => { state.exploration = v; rebuild({ keepStart: true }); });
+bindRange('speed', (v) => `${(2 ** v).toFixed(v < 0 ? 2 : 0)}×`, (v) => { state.speed = v; });
 
 function ratioLabel(v) {
   if (Math.abs(v) < 1e-9) return 'equal';
@@ -213,7 +213,17 @@ function setFlowReference() {
 // ---------------------------------------------------------------------------
 
 function freshHistory() {
-  return { t: [], pts: [], us: [], ur: [], iM: [], iA: [] };
+  return { t: [], pts: [], plane: [], us: [], ur: [], iM: [], iA: [] };
+}
+
+// Every k-th element so long histories stay cheap to draw (the last one is always kept).
+function thin(arr, max = 1200) {
+  if (arr.length <= max) return arr;
+  const k = Math.ceil(arr.length / max);
+  const out = [];
+  for (let i = 0; i < arr.length; i += k) out.push(arr[i]);
+  if (out[out.length - 1] !== arr[arr.length - 1]) out.push(arr[arr.length - 1]);
+  return out;
 }
 
 function record() {
@@ -224,6 +234,7 @@ function record() {
   const info = g.information(S, R);
   h.t.push(state.t);
   h.pts.push(Float64Array.from(state.cur));
+  h.plane.push(binary() ? [state.cur[0] - state.cur[1], state.cur[2] - state.cur[3]] : [info.message / g.entropy(), info.action / g.entropy()]);
   h.us.push(us);
   h.ur.push(ur);
   h.iM.push(info.message);
@@ -307,18 +318,20 @@ function restart() {
 }
 
 function advance(dtModel) {
-  const n = Math.min(40, Math.max(1, Math.round(dtModel / H)));
+  // the 12-dimensional three-state flow is smooth enough for a coarser step
+  const h = binary() ? H : 2 * H;
+  const n = Math.min(40, Math.max(1, Math.round(dtModel / h)));
   for (let i = 0; i < n; i++) {
     if (state.t >= T_MAX) {
       state.pausedAtEnd = true;
       setPlaying(false);
       break;
     }
-    stepState(state.cur, H);
-    if (state.swarmOn || !binary()) for (const y of state.swarm) stepState(y, H);
-    state.t += H;
+    stepState(state.cur, h);
+    if (state.swarmOn || !binary()) for (const y of state.swarm) stepState(y, h);
+    state.t += h;
     state.steps += 1;
-    if (state.steps % REC_EVERY === 0) record();
+    if (binary() ? state.steps % REC_EVERY === 0 : true) record();
   }
 }
 
@@ -437,6 +450,7 @@ function renderOutcomes() {
 // ---------------------------------------------------------------------------
 
 const BASIN_N = 56;
+let basinAxis = 'sender';
 let basinTimer = null;
 let basinJob = null;
 let basinCodes = null;
@@ -452,16 +466,17 @@ function scheduleBasins() {
     basinJob = job;
     const codes = new Int8Array(BASIN_N * BASIN_N).fill(-1);
     basinCodes = codes;
-    const rx = [state.start[2], state.start[3]];
+    const fixedPart = basinAxis === 'sender' ? [state.start[2], state.start[3]] : [state.start[0], state.start[1]];
     const o = { ...opts(), tMax: state.rule === 'softmax_pg' ? 1200 : 300, dt: 0.2 };
     let idx = 0;
     const work = () => {
       if (job.cancelled) return;
       const t0 = performance.now();
       while (idx < codes.length && performance.now() - t0 < 9) {
-        const i = idx % BASIN_N;
-        const j = Math.floor(idx / BASIN_N);
-        codes[idx] = sg.runBinary(state.game, [(i + 0.5) / BASIN_N, (j + 0.5) / BASIN_N, rx[0], rx[1]], o).code;
+        const u = ((idx % BASIN_N) + 0.5) / BASIN_N;
+        const v = (Math.floor(idx / BASIN_N) + 0.5) / BASIN_N;
+        const X0 = basinAxis === 'sender' ? [u, v, fixedPart[0], fixedPart[1]] : [fixedPart[0], fixedPart[1], u, v];
+        codes[idx] = sg.runBinary(state.game, X0, o).code;
         idx += 1;
       }
       drawBasin();
@@ -490,12 +505,24 @@ function drawBasin() {
   }
   frame(p, ctx, T);
   ticks(p, ctx, T, { x: [0, 0.5, 1], y: [0, 0.5, 1] });
-  const m = state.game.messageLabels[0];
-  const [t1, t2] = state.game.stateLabels;
-  axisLabels(p, ctx, T, { x: `sender start: P(${m} | ${t1})`, y: `P(${m} | ${t2})`, size: 11.5 });
+  const g = state.game;
+  const [m1, m2] = g.messageLabels;
+  const [t1, t2] = g.stateLabels;
+  const [a1] = g.actionLabels;
+  const off = basinAxis === 'sender' ? 0 : 2;
+  if (basinAxis === 'sender') axisLabels(p, ctx, T, { x: `sender start: P(${m1} | ${t1})`, y: `P(${m1} | ${t2})`, size: 11.5 });
+  else axisLabels(p, ctx, T, { x: `receiver start: P(${a1} | ${m1})`, y: `P(${a1} | ${m2})`, size: 11.5 });
   const fg = p.ctx.fg;
-  ring(fg, p.sx(state.start[0]), p.sy(state.start[1]), 5, T.ink, 1.8, T.surface);
+  ring(fg, p.sx(state.start[off]), p.sy(state.start[off + 1]), 5, T.ink, 1.8, T.surface);
 }
+
+document.getElementById('basin-axis').addEventListener('change', (e) => {
+  basinAxis = e.target.value;
+  ui.basinHint.textContent = basinAxis === 'sender'
+    ? 'Basin slice: every sender start, with the receiver starting where the ink run does'
+    : 'Basin slice: every receiver start, with the sender starting where the ink run does';
+  scheduleBasins();
+});
 
 // ---------------------------------------------------------------------------
 // Views
@@ -624,7 +651,7 @@ function drawBinarySquares(T) {
         dot(fg, p.sx(y[off]), p.sy(y[off + 1]), 2.3, alpha(swarmColor(i, T), 0.85));
       }
     }
-    const pts = state.hist.pts.map((y) => [p.sx(y[off]), p.sy(y[off + 1])]);
+    const pts = thin(state.hist.pts).map((y) => [p.sx(y[off]), p.sy(y[off + 1])]);
     pts.push([p.sx(X[off]), p.sy(X[off + 1])]);
     polyline(fg, pts, { color: T.ink, width: 2, halo: alpha(T.surface, 0.9) });
     ring(fg, p.sx(state.start[off]), p.sy(state.start[off + 1]), 5, T.ink, 1.6, T.surface);
@@ -641,7 +668,7 @@ function drawTriangles(T) {
   const k = g.k;
   const l = g.l;
   const n = g.n;
-  const hist = state.hist.pts;
+  const hist = thin(state.hist.pts, 600);
   const msgInk = [T.ink, T.ink2, T.muted];
   const specs = [
     [plotS, g.messageLabels, (y, r) => Array.from(y.subarray(r * k, r * k + k)), n, (r) => T.series[r], g.stateLabels],
@@ -760,10 +787,7 @@ function drawPlane() {
       dot(fg, p.sx(x), p.sy(y), 2.4, alpha(swarmColor(i, T), 0.85));
     }
   }
-  const pts = state.hist.pts.map((y) => {
-    const [x, yy] = planeCoords(y);
-    return [p.sx(x), p.sy(yy)];
-  });
+  const pts = thin(state.hist.plane).map(([x, yy]) => [p.sx(x), p.sy(yy)]);
   const [cx, cy] = planeCoords(state.cur);
   pts.push([p.sx(cx), p.sy(cy)]);
   polyline(fg, pts, { color: T.ink, width: 2, halo: alpha(T.surface, 0.9) });
