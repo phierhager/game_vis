@@ -22,6 +22,7 @@ const FIGURES = [
   ['simplex_gallery', 'Flows on the triangle', 'Three kinds of rock-paper-scissors, coordination, Hawk-Dove-Bourgeois and the repeated Prisoner\'s Dilemma.'],
   ['bertrand_plane', 'Marginal profit leads to Nash, not to the cartel', 'Gradient play in a logit Bertrand duopoly, and how sympathy between firms lifts prices.'],
   ['edgeworth_cycles', 'Edgeworth cycles', 'Capacity limits turn the Bertrand price war into an endless sawtooth.'],
+  ['qlearning_pricing', 'Q-learning firms keep prices high', 'The contrast case: learners with memory punish a price cut and settle above Nash, where first-order learners cannot.'],
 ];
 
 function buildGallery() {

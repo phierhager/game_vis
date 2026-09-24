@@ -12,6 +12,7 @@ from gamevis import markets as mk
 from gamevis import normal_form as nf
 from gamevis import signaling as sg
 from gamevis import simplex
+from gamevis.qlearning import QPricing
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -69,3 +70,12 @@ def test_markets(js):
     assert np.isclose(m.best_response(0, 1.8)[0], js["bertrand"]["br"], atol=1e-8)
     assert np.allclose(m.equilibrium(0.5), js["bertrand"]["half"], atol=1e-8)
     assert np.allclose(mk.Edgeworth().simulate((0.9, 0.9), 60), js["edgeworth"], atol=1e-12)
+
+
+def test_qpricing_tables(js):
+    qp = QPricing()
+    assert np.allclose(qp.prices, js["qpricing"]["prices"], atol=1e-9)
+    assert np.allclose(qp.profit[0].ravel(), js["qpricing"]["profit1"], atol=1e-12)
+    Q = qp.initial_q()
+    assert np.allclose(Q[0, 0], js["qpricing"]["q0"], atol=1e-9)
+    assert np.allclose(Q[1, 0], js["qpricing"]["q1"], atol=1e-9)

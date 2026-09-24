@@ -4,6 +4,7 @@ import * as sx from '../../docs/js/lib/simplex.js';
 import * as sg from '../../docs/js/lib/signaling.js';
 import * as nf from '../../docs/js/lib/normalform.js';
 import * as mk from '../../docs/js/lib/markets.js';
+import { QPricing } from '../../docs/js/lib/qlearning.js';
 
 const out = {};
 const X = [0.73, 0.21, 0.64, 0.38];
@@ -33,4 +34,7 @@ for (const [k, g] of Object.entries(nf.SYMMETRIC_PRESETS)) out.rest[k] = g.restP
 const m = new mk.LogitBertrand();
 out.bertrand = { nash: m.nash(), collusive: m.collusive(), br: m.bestResponse(0, 1.8), half: m.equilibrium(0.5) };
 out.edgeworth = new mk.Edgeworth().simulate([0.9, 0.9], 60);
+const qp = new QPricing();
+const Q0 = qp.initialQ();
+out.qpricing = { prices: qp.prices, profit1: Array.from(qp.profit[0]), q0: Array.from(Q0[0].subarray(0, 15)), q1: Array.from(Q0[1].subarray(0, 15)) };
 console.log(JSON.stringify(out));

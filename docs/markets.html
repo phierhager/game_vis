@@ -146,10 +146,46 @@
     </div>
   </section>
 
+
+  <section style="margin-top:40px">
+    <div class="intro">
+      <h2>Q-learning firms</h2>
+      <p class="lede">Swap the gradient for a table. Each firm is a Q-learner that remembers last period's prices and learns by trial and error which price to charge in each of the 225 situations (Calvano, Calzolari, Denicolò and Pastorello, 2020). Such pairs usually settle well above the Nash price that first-order learners find, and they punish a price cut.</p>
+    </div>
+    <div class="controls" role="group" aria-label="Q-learning controls">
+      <div class="control-group">
+        <div class="control">
+          <label for="qschedule">Exploration schedule</label>
+          <select id="qschedule">
+            <option value="baseline">Paper's baseline: β = 4·10⁻⁶, 1.2 million periods</option>
+            <option value="fast">Fast: β = 10⁻⁴, 60,000 periods</option>
+          </select>
+        </div>
+      </div>
+      <div class="buttons">
+        <button class="btn primary" id="qtrain" type="button">Train a new pair</button>
+        <button class="btn" id="qcut" type="button" disabled>Firm 1 cuts its price once</button>
+      </div>
+      <p class="readout" id="qreadout"></p>
+    </div>
+    <div class="bench">
+      <figure class="panel wide">
+        <div class="panel-head"><h2 class="panel-title">Training</h2><span class="panel-hint" id="qhint">average price per block of periods · x: thousands of periods</span></div>
+        <ul class="legend"><li><span class="key-line" style="color:var(--s1)"></span><span>firm 1</span></li><li><span class="key-line" style="color:var(--s2)"></span><span>firm 2</span></li><li><span class="key-line" style="background:none;border-top:2px dashed var(--muted);height:0"></span><span>Nash and monopoly prices</span></li></ul>
+        <div id="chart-qtrain"></div>
+      </figure>
+      <figure class="panel">
+        <div class="panel-head"><h2 class="panel-title">After training: a one-off price cut</h2></div>
+        <div id="chart-qcut"></div>
+        <p class="caption" id="qcut-caption">Train a pair first. Then firm 1 plays its most profitable one-shot price once (period 0) and both return to what they learned.</p>
+      </figure>
+    </div>
+  </section>
+
   <div class="notes">
     <section>
       <h2>Why first-order learners don't collude</h2>
-      <p>At the cartel prices each firm could earn more by shading its own price a little: its marginal profit there is negative. A firm that only follows the slope of its own profit therefore walks away from the lens toward the Nash equilibrium, where both slopes are zero. Collusion needs something beyond the first-order signal: weight on the rival's profit (the λ slider), memory and the threat of punishment, or learning that anticipates the other side's learning.</p>
+      <p>At the cartel prices each firm could earn more by shading its own price a little: its marginal profit there is negative. A firm that only follows the slope of its own profit therefore walks away from the lens toward the Nash equilibrium, where both slopes are zero. Collusion needs something beyond the first-order signal: weight on the rival's profit (the λ slider), memory and the threat of punishment (the Q-learners above), or learning that anticipates the other side's learning.</p>
     </section>
     <section>
       <h2>Models</h2>

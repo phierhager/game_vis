@@ -120,3 +120,19 @@ test('Edgeworth cycles never settle', () => {
   const path = e.simulate([0.9, 0.9], 200).slice(100).map((p) => p[0]);
   assert.ok(Math.max(...path) - Math.min(...path) > 0.05);
 });
+
+test('Q-learning pricing agents learn to price above Nash', async () => {
+  const { QPricing } = await import('../../docs/js/lib/qlearning.js');
+  const qp = new QPricing({ beta: 1e-4 });
+  let gain = 0;
+  for (let seed = 1; seed <= 3; seed++) {
+    const sess = qp.newSession(seed);
+    qp.train(sess, 60000);
+    gain += qp.cycleProfitGain(sess, sess.s) / 3;
+    const path = qp.play(sess, qp.limitCycle(sess, sess.s)[0], 6, 2);
+    const a2 = path[2][1];
+    const best = [...Array(qp.m).keys()].reduce((b, a) => (qp.profit[0][a * qp.m + a2] > qp.profit[0][b * qp.m + a2] ? a : b), 0);
+    assert.equal(path[2][0], best);
+  }
+  assert.ok(gain > 0.3, `gain ${gain}`);
+});

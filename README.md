@@ -17,7 +17,7 @@ interactive pages.
 | [`docs/signaling.html`](docs/signaling.html) | Linked views of the 4-dimensional signaling flow: sender and receiver squares with the landscape each agent currently sees, the meaning plane, a states → messages → actions diagram, basin slices, 200 parallel runs. Drag starting points, change priors, learning rules and who learns faster. |
 | [`docs/normal-form.html`](docs/normal-form.html) | Phase portraits of 2×2 games with particle flow, Nash equilibria, basins and click-to-launch runs; continuous vs discrete vs optimistic learning; a clickable atlas of all symmetric 2×2 games; editable payoffs. |
 | [`docs/simplex.html`](docs/simplex.html) | Three-strategy population games on the triangle (rock-paper-scissors in three flavours, coordination, Hawk-Dove-Bourgeois, repeated Prisoner's Dilemma), editable 3×3 payoffs. |
-| [`docs/markets.html`](docs/markets.html) | Price plane of a logit or linear Bertrand duopoly (or Cournot quantities): best replies, Nash vs cartel, the "both gain" lens, gradient play vs alternating best replies, a sympathy parameter; animated Edgeworth price cycles. |
+| [`docs/markets.html`](docs/markets.html) | Price plane of a logit or linear Bertrand duopoly (or Cournot quantities): best replies, Nash vs cartel, the "both gain" lens, gradient play vs alternating best replies, a sympathy parameter; animated Edgeworth price cycles; Q-learning firms trained live in the browser, with a one-off price cut to show punishment. |
 
 **Run the pages locally:** `python3 -m http.server 8000 --directory docs` and open
 <http://localhost:8000>. (They are ES modules, so opening the files directly from disk
@@ -197,6 +197,18 @@ rest point.
   <img alt="Edgeworth price cycles" src="docs/figures/edgeworth_cycles_light.png">
 </picture>
 
+For contrast, replace the gradient with a table. Tabular Q-learners that remember last
+period's prices (the Calvano et al. 2020 baseline: 15 prices, 225 states, α = 0.15,
+δ = 0.95, β = 4·10⁻⁶) usually settle well above Nash (average profit gain 83% of the way
+from Nash to monopoly over 8 runs here, 84% over 12 runs in the browser version) and
+answer a one-off price cut with a price war before returning to the high price. Memory
+and punishment are exactly what the first-order signal lacks.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/figures/qlearning_pricing_dark.png">
+  <img alt="Q-learning pricing agents: training, punishment after a price cut, long-run prices" src="docs/figures/qlearning_pricing_light.png">
+</picture>
+
 ## Using the Python package
 
 ```bash
@@ -221,6 +233,11 @@ t, X = sg.simulate_binary(game, X0, "projection", t_max=200, rates=(1.0, 4.0))
 sg.costly_signaling(cost_low=0.6)                   # handicap game with cheap faking
 nf.BIMATRIX_PRESETS["matching_pennies"].discrete_path(0.7, 0.5, eta=0.15, optimistic=True)
 mk.LogitBertrand().nash(), mk.LogitBertrand().collusive()
+
+from gamevis.qlearning import QPricing
+qp = QPricing(beta=1e-4)                             # fast exploration decay
+res = qp.run(sessions=4, periods=60_000)
+[qp.cycle_profit_gain(res["Q"][k], int(res["state"][k])) for k in range(4)]
 ```
 
 ## Repository layout
@@ -232,6 +249,7 @@ src/gamevis/        Python package
   signaling.py        sender-receiver games, presets, outcomes, basins
   normal_form.py      2x2 bimatrix games and symmetric n-strategy games
   markets.py          logit/linear Bertrand, Cournot, Edgeworth
+  qlearning.py        tabular Q-learning pricing agents (the contrast case)
   plotting.py         matplotlib theme and drawing helpers
 scripts/make_figures.py   the figure gallery
 docs/               static site (GitHub Pages ready, no build step)

@@ -6,6 +6,7 @@ import { FlowField } from '../ui/flow.js';
 import { LineChart, niceStep } from '../ui/chart.js';
 import { initPage, bindRange, fixed } from '../ui/common.js';
 import * as mk from '../lib/markets.js';
+import { QPricing } from '../lib/qlearning.js';
 import { mulberry32 } from '../lib/rng.js';
 
 initPage();
@@ -521,6 +522,100 @@ function drawEdgeworth() {
   if (tail.length) dot(bctx, tail[tail.length - 1][0], tail[tail.length - 1][1], 4.5, T.ink, T.surface, 2);
 }
 
+
+// ---------------------------------------------------------------------------
+// Q-learning firms
+// ---------------------------------------------------------------------------
+
+const SCHEDULES = { fast: { beta: 1e-4, periods: 60000 }, baseline: { beta: 4e-6, periods: 1200000 } };
+// seed 3 settles on one price and shows a clean punishment episode; later clicks draw new seeds
+const qs = { qp: null, sess: null, done: 0, total: 0, block: 0, xs: [], p1: [], p2: [], seed: 3, training: false };
+const qReadout = document.getElementById('qreadout');
+const qCutBtn = document.getElementById('qcut');
+const qCutCaption = document.getElementById('qcut-caption');
+const qTrainChart = new LineChart(document.getElementById('chart-qtrain'), {
+  yDomain: [1.4, 2.0], yTicks: [1.4, 1.6, 1.8, 2.0], height: 190, valueFormat: (v) => v.toFixed(3),
+  series: [
+    { key: 'p1', label: 'firm 1', color: 's1' },
+    { key: 'p2', label: 'firm 2', color: 's2' },
+    { key: 'mono', label: 'monopoly', color: 'muted', dash: [5, 4], width: 1.2 },
+    { key: 'nash', label: 'Nash', color: 'muted', dash: [5, 4], width: 1.2 },
+  ],
+});
+const qCutChart = new LineChart(document.getElementById('chart-qcut'), {
+  yDomain: [1.4, 2.0], yTicks: [1.4, 1.6, 1.8, 2.0], height: 190, valueFormat: (v) => v.toFixed(3),
+  series: [
+    { key: 'p1', label: 'firm 1', color: 's1' },
+    { key: 'p2', label: 'firm 2', color: 's2' },
+    { key: 'mono', label: 'monopoly', color: 'muted', dash: [5, 4], width: 1.2 },
+    { key: 'nash', label: 'Nash', color: 'muted', dash: [5, 4], width: 1.2 },
+  ],
+});
+
+function qStart() {
+  const sch = SCHEDULES[document.getElementById('qschedule').value];
+  qs.qp = new QPricing({ beta: sch.beta });
+  qs.sess = qs.qp.newSession(qs.seed++ * 9973);
+  qs.total = sch.periods;
+  qs.done = 0;
+  qs.block = Math.max(1, Math.round(sch.periods / 150));
+  qs.xs = [];
+  qs.p1 = [];
+  qs.p2 = [];
+  qs.training = true;
+  qCutBtn.disabled = true;
+  qCutChart.setData([], {});
+  qCutChart.draw();
+  qCutCaption.textContent = 'Training…';
+}
+
+function qStep() {
+  if (!qs.training) return;
+  const perFrame = Math.max(qs.block, Math.round(qs.total / 90));
+  const t0 = performance.now();
+  let n = 0;
+  while (qs.done < qs.total && n < perFrame && performance.now() - t0 < 12) {
+    const [a, b] = qs.qp.train(qs.sess, qs.block);
+    qs.done += qs.block;
+    n += qs.block;
+    qs.xs.push(qs.done / 1000);
+    qs.p1.push(a);
+    qs.p2.push(b);
+  }
+  const L = qs.xs.length;
+  qTrainChart.setData(qs.xs, { p1: qs.p1, p2: qs.p2, mono: Array(L).fill(qs.qp.pMonopoly), nash: Array(L).fill(qs.qp.pNash) });
+  qTrainChart.draw();
+  qReadout.textContent = `period ${qs.done.toLocaleString()} of ${qs.total.toLocaleString()} · exploration ${(100 * Math.exp(-qs.qp.beta * qs.sess.t)).toFixed(1)}%`;
+  if (qs.done >= qs.total) {
+    qs.training = false;
+    qCutBtn.disabled = false;
+    const cyc = qs.qp.limitCycle(qs.sess, qs.sess.s);
+    const gain = qs.qp.cycleProfitGain(qs.sess, qs.sess.s);
+    const prices = cyc.map((st) => (qs.qp.prices[Math.floor(st / qs.qp.m)] + qs.qp.prices[st % qs.qp.m]) / 2);
+    const avg = prices.reduce((x, y) => x + y, 0) / prices.length;
+    qReadout.innerHTML = `<span><b>long-run price ${avg.toFixed(3)}</b></span><span>Nash ${qs.qp.pNash.toFixed(3)} · monopoly ${qs.qp.pMonopoly.toFixed(3)}</span><span>profit gain ${(100 * gain).toFixed(0)}% of the way from Nash to monopoly</span>${cyc.length > 1 ? `<span>play cycles through ${cyc.length} states</span>` : ''}`;
+    qCut();
+  }
+}
+
+function qCut() {
+  const qp = qs.qp;
+  const s0 = qp.limitCycle(qs.sess, qs.sess.s)[0];
+  const before = 3;
+  const path = qp.play(qs.sess, s0, 20, before);
+  const xs = path.map((_, i) => i - before);
+  const p1 = path.map(([a]) => qp.prices[a]);
+  const p2 = path.map(([, b]) => qp.prices[b]);
+  // LineChart's x axis starts at 0, so shift by the lead-in
+  qCutChart.setData(xs.map((x) => x + before), { p1, p2, mono: Array(xs.length).fill(qp.pMonopoly), nash: Array(xs.length).fill(qp.pNash) });
+  qCutChart.draw();
+  const low = Math.min(...p2.slice(before + 1, before + 4));
+  qCutCaption.textContent = `Firm 1 undercuts at x = ${before} (from ${p1[before - 1].toFixed(2)} to ${p1[before].toFixed(2)}). Firm 2's price then falls as low as ${low.toFixed(2)}${low < p2[before - 1] - 1e-9 ? ': a punishment' : ''}, and prices climb back afterwards. Gradient play has no memory, so it cannot punish.`;
+}
+
+document.getElementById('qtrain').addEventListener('click', qStart);
+qCutBtn.addEventListener('click', qCut);
+
 // ---------------------------------------------------------------------------
 // Loop
 // ---------------------------------------------------------------------------
@@ -536,6 +631,7 @@ function loop(now) {
   drawRuns();
   eAdvance(dt);
   drawEdgeworth();
+  qStep();
   if (frameNo % 6 === 0) drawChart();
   requestAnimationFrame(loop);
 }
@@ -544,6 +640,8 @@ onThemeChange(() => {
   drawPlaneBg();
   drawEdgeworthBg();
   drawChart();
+  qTrainChart.draw();
+  qCutChart.draw();
   flow.clear();
 });
 plane.onResize(() => { if (state.model) drawPlaneBg(); });
@@ -553,4 +651,5 @@ ebr.onResize(() => { if (est.model) drawEdgeworthBg(); });
 rebuild();
 eRebuild();
 updateReadout();
+qStart();
 requestAnimationFrame(loop);

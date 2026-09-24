@@ -25,6 +25,7 @@ from gamevis import markets as mk  # noqa: E402
 from gamevis import normal_form as nf  # noqa: E402
 from gamevis import signaling as sg  # noqa: E402
 from gamevis import simplex  # noqa: E402
+from gamevis.qlearning import QPricing  # noqa: E402
 from gamevis.plotting import (  # noqa: E402
     THEMES,
     Theme,
@@ -688,6 +689,96 @@ def fig_edgeworth_cycles(t: Theme):
         ax.spines[s_].set_visible(False)
     ax.legend(loc="upper left", handlelength=1.4)
     ax.text(0.02, 0.8, "ink: the price path\n(alternating moves)", transform=ax.transAxes, fontsize=8, color=t.ink2, va="top")
+    return fig
+
+
+_QCACHE = {}
+
+
+def _q_sessions():
+    """Eight baseline sessions (beta = 4e-6, 1.2 million periods); computed once per run."""
+    if "res" not in _QCACHE:
+        qp = QPricing(beta=4e-6)
+        _QCACHE["qp"] = qp
+        _QCACHE["res"] = qp.run(sessions=8, periods=1_200_000, seed=1, record_every=10_000)
+    return _QCACHE["qp"], _QCACHE["res"]
+
+
+@figure("qlearning_pricing")
+def fig_qlearning_pricing(t: Theme):
+    qp, res = _q_sessions()
+    K = res["Q"].shape[0]
+    fig = plt.figure(figsize=(12.8, 4.9))
+    gs = fig.add_gridspec(1, 3, width_ratios=[1.35, 1.1, 0.95], left=0.055, right=0.98, top=0.76, bottom=0.15, wspace=0.3)
+    figure_title(
+        fig,
+        "Q-learning firms remember, punish, and keep prices high",
+        "Two tabular Q-learners with one period of memory in the logit Bertrand market (Calvano et al. 2020 baseline, 8 independent runs).",
+        t,
+    )
+    ref = lambda ax: [ax.axhline(v, color=t.axis, lw=0.9, ls=(0, (4, 3)), zorder=0) for v in (qp.p_nash, qp.p_monopoly)]  # noqa: E731
+    ax = fig.add_subplot(gs[0])
+    ref(ax)
+    tt = res["t"] / 1e6
+    for k in range(K):
+        ax.plot(tt, res["prices"][:, k].mean(axis=1), color=t.mix(t.ink, 0.35), lw=1.0)
+    ax.plot(tt, res["prices"].mean(axis=(1, 2)), color=t.ink, lw=2)
+    ax.text(tt[-1], qp.p_monopoly + 0.012, "monopoly price", ha="right", va="bottom", fontsize=8, color=t.muted)
+    ax.text(tt[-1], qp.p_nash - 0.012, "Nash price", ha="right", va="top", fontsize=8, color=t.muted)
+    gains = [qp.cycle_profit_gain(res["Q"][k], int(res["state"][k])) for k in range(K)]
+    ax.set_xlabel("periods (millions)")
+    ax.set_ylabel("average price")
+    ax.set_title("Training: prices drift up, not down", pad=18, fontsize=10.5)
+    ax.text(0, 1.03, f"ink: mean of 8 runs; average profit gain {np.mean(gains):.0%} of the way from Nash to monopoly", transform=ax.transAxes, fontsize=8, color=t.ink2, va="bottom")
+    ax.set_ylim(qp.prices[0] - 0.02, qp.prices[-1] + 0.02)
+    for s_ in ("top", "right"):
+        ax.spines[s_].set_visible(False)
+    # impulse response
+    ax = fig.add_subplot(gs[1])
+    ref(ax)
+    before, after, dev = 3, 14, 3
+    paths = []
+    for k in range(K):
+        s0 = qp.limit_cycle(res["Q"][k], int(res["state"][k]))[0]
+        paths.append(qp.prices[qp.play(res["Q"][k], s0, periods=before + after, deviate_at=dev)])
+    paths = np.array(paths)  # (K, T, 2)
+    periods = np.arange(paths.shape[1]) - dev
+    ax.axvspan(-0.5, 0.5, color=t.mix(t.ink, 0.07), lw=0, zorder=0)
+    ax.plot(periods, paths[:, :, 0].mean(0), color=t.series[0], lw=2, marker="o", ms=4, label="firm 1 (deviates at 0)")
+    ax.plot(periods, paths[:, :, 1].mean(0), color=t.series[1], lw=2, marker="o", ms=4, label="firm 2")
+    ax.set_xlabel("periods after firm 1's one-off price cut")
+    ax.set_title("A price cut is punished, then forgiven", pad=18, fontsize=10.5)
+    ax.text(0, 1.03, "average over the 8 runs; firm 1 plays its static best reply once", transform=ax.transAxes, fontsize=8, color=t.ink2, va="bottom")
+    ax.legend(loc="lower left", handlelength=1.4)
+    ax.set_ylim(qp.prices[0] - 0.02, qp.prices[-1] + 0.02)
+    for s_ in ("top", "right"):
+        ax.spines[s_].set_visible(False)
+    # where the learners end up
+    ax = fig.add_subplot(gs[2])
+    q_prices = []
+    for k in range(K):
+        cyc = qp.limit_cycle(res["Q"][k], int(res["state"][k]))
+        q_prices.append(np.mean([(qp.prices[c // qp.m] + qp.prices[c % qp.m]) / 2 for c in cyc]))
+    m = mk.LogitBertrand()
+    starts = np.random.default_rng(2).uniform(1.2, 2.2, size=(K, 2))
+    g_prices = m.simulate(starts, t_max=300, dt=0.05)[-1].mean(axis=1)
+    rows = [("gradient play", g_prices), ("Q-learning", np.array(q_prices))]
+    for v, lab in [(qp.p_nash, "Nash"), (qp.p_monopoly, "monopoly")]:
+        ax.axvline(v, color=t.axis, lw=0.9, ls=(0, (4, 3)), zorder=0)
+        ax.text(v, 1.62, lab, ha="center", va="bottom", fontsize=8, color=t.muted)
+    jit = np.linspace(-0.12, 0.12, K)
+    for r, (lab, vals) in enumerate(rows):
+        y = 1 - r
+        ax.plot(vals, y + jit, "o", ms=6.5, color=t.ink if r == 0 else t.series[0], mec=t.surface, mew=1.2, zorder=3)
+        ax.text(1.43, y + 0.25, lab, fontsize=9, color=t.ink, fontweight="bold", va="bottom")
+    ax.set_ylim(-0.45, 1.75)
+    ax.set_yticks([])
+    ax.set_xlim(1.42, 2.0)
+    ax.set_xlabel("long-run price (average of both firms)")
+    for s_ in ("top", "right", "left"):
+        ax.spines[s_].set_visible(False)
+    ax.set_title("Where the learners end up", pad=18, fontsize=10.5)
+    ax.text(0, 1.03, "8 runs each; gradient play always finds Nash", transform=ax.transAxes, fontsize=8, color=t.ink2, va="bottom")
     return fig
 
 
